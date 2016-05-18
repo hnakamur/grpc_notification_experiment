@@ -9,6 +9,7 @@ import (
 
 	pb "bitbucket.org/hnakamur/grpc_notification_experiment/sites"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 )
 
@@ -62,6 +63,12 @@ func (s *sitesServer) WatchSites(_ *pb.Empty, stream pb.SitesService_WatchSitesS
 }
 
 func main() {
+	var enableTLS bool
+	flag.BoolVar(&enableTLS, "enable-tls", false, "enable TLS")
+	var certFile string
+	flag.StringVar(&certFile, "cert-file", "../../ssl/server/server.crt", "TLS cert file")
+	var keyFile string
+	flag.StringVar(&keyFile, "key-file", "../../ssl/server/server.key", "TLS key file")
 	var addr string
 	flag.StringVar(&addr, "addr", ":10000", "server listen address")
 	flag.Parse()
@@ -72,6 +79,13 @@ func main() {
 	}
 
 	var opts []grpc.ServerOption
+	if enableTLS {
+		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+		if err != nil {
+			grpclog.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
 	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterSitesServiceServer(grpcServer, newServer())
 	grpcServer.Serve(lis)

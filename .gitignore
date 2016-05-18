@@ -1,2 +1,4 @@
 /cmd/server/server
 /cmd/client/client
+/ssl/ca/
+/ssl/server/
