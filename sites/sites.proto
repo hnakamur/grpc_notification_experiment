@@ -1,0 +1,40 @@
+// NOTE: Run the following command when you modify this file.
+// /usr/local/protobuf3/bin/protoc --go_out=plugins=grpc:. *.proto
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "org.naruh.grpc.examples.sites";
+option java_outer_classname = "SitesProto";
+
+package sites;
+
+service SitesService {
+  rpc ListSites(Empty) returns (Sites) {}
+
+  rpc WatchSites(Empty) returns (stream SiteModification) {}
+}
+
+// See http://stackoverflow.com/questions/31768665/can-i-define-a-grpc-call-with-a-null-request-or-response/31772973#31772973 for Empty
+message Empty {
+}
+
+message Site {
+  string domain = 1;
+  string origin = 2;
+}
+
+message Sites {
+  repeated Site sites = 1;
+}
+
+enum SiteModificationOp {
+  UNKNOWN = 0;
+  ADDED = 1;
+  EDITED = 2;
+  REMOVED = 3;
+}
+
+message SiteModification {
+  SiteModificationOp op = 1;
+  Site site = 2;
+}
