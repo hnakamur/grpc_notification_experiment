@@ -3,20 +3,23 @@ package main
 import (
 	"flag"
 	"net"
-	"time"
 
 	"golang.org/x/net/context"
 
-	pb "bitbucket.org/hnakamur/grpc_notification_experiment/sites"
+	pb "github.com/hnakamur/grpc_notification_experiment/sites"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 )
 
-type sitesServer struct{}
+type sitesServer struct {
+	modC chan *pb.SiteModification
+}
 
 func newServer() *sitesServer {
-	return &sitesServer{}
+	return &sitesServer{
+		modC: make(chan *pb.SiteModification),
+	}
 }
 
 func (s *sitesServer) ListSites(ctx context.Context, _ *pb.Empty) (*pb.Sites, error) {
@@ -29,36 +32,18 @@ func (s *sitesServer) ListSites(ctx context.Context, _ *pb.Empty) (*pb.Sites, er
 	return sites, nil
 }
 
+func (s *sitesServer) NotifySiteModification(ctx context.Context, mod *pb.SiteModification) (*pb.Empty, error) {
+	s.modC <- mod
+	return &pb.Empty{}, nil
+}
+
 func (s *sitesServer) WatchSites(_ *pb.Empty, stream pb.SitesService_WatchSitesServer) error {
-	mod := &pb.SiteModification{
-		Op:   pb.SiteModificationOp_EDITED,
-		Site: &pb.Site{Domain: "foo.example.com", Origin: "foo.example.net"},
+	for mod := range s.modC {
+		err := stream.Send(mod)
+		if err != nil {
+			return err
+		}
 	}
-	err := stream.Send(mod)
-	if err != nil {
-		return err
-	}
-
-	time.Sleep(time.Second)
-	mod = &pb.SiteModification{
-		Op:   pb.SiteModificationOp_ADDED,
-		Site: &pb.Site{Domain: "baz.example.com", Origin: "baz.example.org"},
-	}
-	err = stream.Send(mod)
-	if err != nil {
-		return err
-	}
-
-	time.Sleep(time.Second)
-	mod = &pb.SiteModification{
-		Op:   pb.SiteModificationOp_REMOVED,
-		Site: &pb.Site{Domain: "baz.example.com", Origin: "baz.example.org"},
-	}
-	err = stream.Send(mod)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 

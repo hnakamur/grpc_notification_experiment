@@ -10,7 +10,7 @@ package sites;
 
 service SitesService {
   rpc ListSites(Empty) returns (Sites) {}
-
+  rpc NotifySiteModification(SiteModification) returns (Empty) {}
   rpc WatchSites(Empty) returns (stream SiteModification) {}
 }
 

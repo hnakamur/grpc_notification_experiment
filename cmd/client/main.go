@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	pb "bitbucket.org/hnakamur/grpc_notification_experiment/sites"
+	pb "github.com/hnakamur/grpc_notification_experiment/sites"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
@@ -20,6 +20,31 @@ func listSites(client pb.SitesServiceClient) {
 	}
 	for _, site := range sites.Sites {
 		grpclog.Printf("site=%v", site)
+	}
+}
+
+func notifySiteModification(client pb.SitesServiceClient, op, domain, origin string) {
+	var opVal pb.SiteModificationOp
+	switch op {
+	case "add":
+		opVal = pb.SiteModificationOp_ADDED
+	case "edit":
+		opVal = pb.SiteModificationOp_EDITED
+	case "remove":
+		opVal = pb.SiteModificationOp_REMOVED
+	default:
+		log.Fatal("operation must be one of add, edit or remove")
+	}
+	mod := &pb.SiteModification{
+		Op: opVal,
+		Site: &pb.Site{
+			Domain: domain,
+			Origin: origin,
+		},
+	}
+	_, err := client.NotifySiteModification(context.Background(), mod)
+	if err != nil {
+		grpclog.Fatalf("%v.NotifySiteModification(_) = _, %v: ", client, err)
 	}
 }
 
@@ -50,6 +75,12 @@ func main() {
 	flag.StringVar(&serverHostOverride, "server-host-override", "grpc.example.com", "The server name use to verify the hostname returned by TLS handshake")
 	var serverAddr string
 	flag.StringVar(&serverAddr, "server-addr", "127.0.0.1:10000", "server listen address")
+	var op string
+	flag.StringVar(&op, "op", "watch", "operation: one of watch, add, remove, edit")
+	var domain string
+	flag.StringVar(&domain, "domain", "example.com", "domain of site")
+	var origin string
+	flag.StringVar(&origin, "origin", "example.org", "origin of site")
 	flag.Parse()
 
 	var opts []grpc.DialOption
@@ -79,6 +110,10 @@ func main() {
 	}
 	defer conn.Close()
 	client := pb.NewSitesServiceClient(conn)
-	listSites(client)
-	watchSites(client)
+	if op == "watch" {
+		listSites(client)
+		watchSites(client)
+	} else {
+		notifySiteModification(client, op, domain, origin)
+	}
 }
