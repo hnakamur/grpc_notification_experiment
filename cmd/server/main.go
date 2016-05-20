@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"io"
+	"log"
 	"net"
 
 	"golang.org/x/net/context"
@@ -14,11 +16,13 @@ import (
 
 type sitesServer struct {
 	modC chan *pb.SiteModification
+	jobC chan *pb.Job
 }
 
 func newServer() *sitesServer {
 	return &sitesServer{
 		modC: make(chan *pb.SiteModification),
+		jobC: make(chan *pb.Job),
 	}
 }
 
@@ -40,6 +44,35 @@ func (s *sitesServer) NotifySiteModification(ctx context.Context, mod *pb.SiteMo
 func (s *sitesServer) WatchSites(_ *pb.Empty, stream pb.SitesService_WatchSitesServer) error {
 	for mod := range s.modC {
 		err := stream.Send(mod)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *sitesServer) RequestWork(ctx context.Context, job *pb.Job) (*pb.Empty, error) {
+	s.jobC <- job
+	return &pb.Empty{}, nil
+}
+
+func (s *sitesServer) DoSomeWork(stream pb.SitesService_DoSomeWorkServer) error {
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Printf("DoSomeWork handler got err=%s", err)
+				break
+			}
+
+			log.Printf("res=%v", res)
+		}
+	}()
+	for job := range s.jobC {
+		err := stream.Send(job)
 		if err != nil {
 			return err
 		}

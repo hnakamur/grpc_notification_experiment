@@ -12,6 +12,8 @@ service SitesService {
   rpc ListSites(Empty) returns (Sites) {}
   rpc NotifySiteModification(SiteModification) returns (Empty) {}
   rpc WatchSites(Empty) returns (stream SiteModification) {}
+  rpc RequestWork(Job) returns (Empty) {}
+  rpc DoSomeWork(stream JobResults) returns (stream Job) {}
 }
 
 // See http://stackoverflow.com/questions/31768665/can-i-define-a-grpc-call-with-a-null-request-or-response/31772973#31772973 for Empty
@@ -37,4 +39,18 @@ enum SiteModificationOp {
 message SiteModification {
   SiteModificationOp op = 1;
   Site site = 2;
+}
+
+message Job {
+  repeated string targets = 1;
+}
+
+message JobResult {
+  string target = 1;
+  string result = 2;
+}
+
+message JobResults {
+  string clientID = 1;
+  repeated JobResult results = 2;
 }
